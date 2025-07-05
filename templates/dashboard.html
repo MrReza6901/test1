@@ -1,32 +1,238 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <title>پنل مدیریت</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>برنامه عهد جمعی - پنل مدیریت</title>
+  <style>
+    body {
+      font-family: 'Vazirmatn', sans-serif;
+      background-color: #f9f9f9;
+      margin: 0;
+      padding: 1rem;
+      direction: rtl;
+      color: #333;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem 2rem;
+      box-shadow: 0 0 12px rgba(0,0,0,0.1);
+    }
+    h2 {
+      margin-top: 0;
+      margin-bottom: 1rem;
+      font-weight: 700;
+      text-align: center;
+      color: #2a7f35;
+    }
+    form {
+      margin-bottom: 1.5rem;
+    }
+    .member-item {
+      display: flex;
+      align-items: center;
+      padding: 0.4rem 0;
+      border-bottom: 1px solid #eee;
+      font-size: 1.1rem;
+    }
+    .member-item label {
+      cursor: pointer;
+      flex-grow: 1;
+    }
+    input[type="checkbox"] {
+      margin-left: 1rem;
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 0.5rem;
+      margin-bottom: 0.75rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      padding: 0.7rem;
+      background-color: #2a7f35;
+      color: white;
+      font-size: 1.1rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.25s ease;
+    }
+    button:hover {
+      background-color: #1e5b24;
+    }
+    #export-output {
+      white-space: pre-wrap;
+      background: #f4f4f4;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 1rem;
+      font-size: 1rem;
+      line-height: 1.5;
+      height: 320px;
+      overflow-y: auto;
+      user-select: all;
+    }
+    @media (max-width: 640px) {
+      .container {
+        padding: 1rem;
+        margin: 0.5rem;
+      }
+      .member-item {
+        font-size: 1rem;
+      }
+    }
+  </style>
 </head>
 <body>
   <div class="container">
-    <h2>مدیریت برنامه عهد جمعی - {{ today }}</h2>
-    <form method="POST">
-      {% for member in members %}
-        <div class="check-row">
-          <label>
-            <input type="checkbox" name="checked" value="{{ member }}" {% if member in checked %}checked{% endif %}>
-            {{ loop.index }}. {{ member }}
-          </label>
-        </div>
-      {% endfor %}
-      <button type="submit">ذخیره</button>
+    <h2>📖 برنامه عهد جمعی - پنل مدیریت 📖</h2>
+    <p style="text-align:center; margin-bottom:1.5rem;">
+      تاریخ امروز: <span id="today-date"></span>
+    </p>
+
+    <form id="checkin-form">
+      <div id="members-list"></div>
+      <button type="submit">ثبت وضعیت امروز</button>
     </form>
 
-    <form method="POST" action="/add-member" style="margin-top: 1rem;">
-      <input name="fullname" placeholder="نام عضو جدید">
+    <form id="add-member-form" style="margin-bottom:1.5rem;">
+      <input type="text" id="new-member-name" placeholder="نام عضو جدید" autocomplete="off" />
       <button type="submit">افزودن عضو</button>
     </form>
 
-    <br>
-    <a href="/logout">خروج</a>
+    <h3>📄 خروجی وضعیت امروز:</h3>
+    <pre id="export-output" readonly></pre>
   </div>
+
+  <script>
+    // اعضا اولیه (ترتیب الفبایی رعایت شده)
+    let members = [
+      "اسماعیلی رضا", "امیری صادق", "امیری محمد علی", "بردستانی حسین", "دره زرشکی حمید",
+      "دهقان مصطفی", "رفیع محمد رضا", "روح پرور مهدی", "روح پرور محمد رضا", "رضایی ایلیا",
+      "سلمانی مجید", "شفیعی مهدی", "شناور محسن", "شیخی ابراهیم", "ضرغام محمد صالح",
+      "عباسی زهیر", "غلامی محمد مهدی", "فرهادی ابوالفضل", "فلاح محمدرضا", "فلاحتی روح الله",
+      "قاسمیان سید جمال", "قاسمیان سید مجتبی", "مشهدی بافان محسن", "منصوریان هادی",
+      "نعمتی علی", "نوری کاظم"
+    ];
+
+    // بارگذاری وضعیت‌ها از localStorage یا مقدار اولیه
+    let status = JSON.parse(localStorage.getItem('prayerCheckStatus')) || {};
+
+    // تاریخ امروز شمسی (تقریبی)
+    function getTodayJalali() {
+      const gregorian = new Date();
+      const months = ["فروردین","اردیبهشت","خرداد","تیر","مرداد","شهریور","مهر","آبان","آذر","دی","بهمن","اسفند"];
+      // تبدیل تاریخ میلادی به شمسی (فقط تاریخ و ماه ساده)
+      // برای دقت کامل از کتابخانه moment-jalaali یا مشابه می‌شه استفاده کرد ولی همین کافیه
+      const day = gregorian.getDate();
+      const month = gregorian.getMonth() + 1;
+      const year = gregorian.getFullYear();
+
+      // تبدیل ساده (برای نمونه) - میشه دقیق‌تر با کتابخانه‌ها
+      const jalaliYear = year - 621;
+      let jalaliMonth = month;
+      let jalaliDay = day;
+      // تنظیم ساده
+      if(month < 3 || (month === 3 && day < 21)) jalaliYear--;
+
+      return `${jalaliYear}/${('0'+jalaliMonth).slice(-2)}/${('0'+jalaliDay).slice(-2)}`;
+    }
+
+    // رندر اعضا و وضعیت تیک‌ها
+    function renderMembers() {
+      const container = document.getElementById('members-list');
+      container.innerHTML = '';
+      // مرتب‌سازی بر اساس حروف الفبا
+      members.sort((a,b) => a.localeCompare(b));
+      members.forEach((name, idx) => {
+        const div = document.createElement('div');
+        div.classList.add('member-item');
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `chk-${idx}`;
+        checkbox.value = name;
+        checkbox.checked = !!status[name];
+
+        const label = document.createElement('label');
+        label.htmlFor = checkbox.id;
+        label.textContent = `${idx + 1}. ${name}`;
+
+        div.appendChild(label);
+        div.appendChild(checkbox);
+        container.appendChild(div);
+      });
+    }
+
+    // ساخت خروجی پیام به فرمت دلخواه
+    function generateOutput() {
+      const date = document.getElementById('today-date').textContent;
+      let output = `📖برنامه عهد جمعی📖\n\n⌚️ ${date} ⌚️\n\nاسامی اعضای گروه به ترتیب حروف الفبا \n\nجناب آقایان\n`;
+      members.sort((a,b) => a.localeCompare(b)).forEach((name, idx) => {
+        const symbol = status[name] ? '🌸' : '🥺';
+        output += ` ${idx + 1}. ${name} ${symbol}\n`;
+      });
+      return output;
+    }
+
+    // ذخیره وضعیت‌ها در localStorage
+    function saveStatus() {
+      localStorage.setItem('prayerCheckStatus', JSON.stringify(status));
+    }
+
+    // رویداد ثبت فرم تیک‌زدن
+    document.getElementById('checkin-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const checkboxes = document.querySelectorAll('#members-list input[type="checkbox"]');
+      checkboxes.forEach(cb => {
+        status[cb.value] = cb.checked;
+      });
+      saveStatus();
+      updateExport();
+      alert('وضعیت امروز ثبت شد ✅');
+    });
+
+    // افزودن عضو جدید
+    document.getElementById('add-member-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const input = document.getElementById('new-member-name');
+      let newName = input.value.trim();
+      if(newName === '') {
+        alert('لطفا نام عضو جدید را وارد کنید.');
+        return;
+      }
+      if(members.includes(newName)) {
+        alert('این عضو قبلا وجود دارد.');
+        return;
+      }
+      members.push(newName);
+      status[newName] = false;
+      saveStatus();
+      renderMembers();
+      updateExport();
+      input.value = '';
+    });
+
+    // بروزرسانی متن خروجی روی صفحه
+    function updateExport() {
+      document.getElementById('export-output').textContent = generateOutput();
+    }
+
+    // مقداردهی اولیه
+    document.getElementById('today-date').textContent = getTodayJalali();
+    renderMembers();
+    updateExport();
+  </script>
 </body>
 </html>
