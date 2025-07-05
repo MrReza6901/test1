@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>عهد جمعی - کاربر</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  {% if not user %}
+  <div class="box">
+    <h2>ورود / ثبت‌نام</h2>
+    <form method="POST">
+      <input name="username" placeholder="نام کاربری">
+      <input name="fullname" placeholder="نام کامل">
+      <input name="password" type="password" placeholder="رمز عبور">
+      <button name="action" value="register">ثبت‌نام</button>
+      <hr>
+      <input name="username" placeholder="نام کاربری">
+      <input name="password" type="password" placeholder="رمز عبور">
+      <button name="action" value="login">ورود</button>
+    </form>
+  </div>
+  {% else %}
+  <div class="box">
+    <h2>سلام {{ user.fullname }} 👋</h2>
+    <form method="POST" action="/checkin">
+      <button type="submit">✅ امروز دعا را خواندم</button>
+    </form>
+    <a href="/logout">خروج</a>
+
+    <h3>وضعیت امروز</h3>
+    <ul>
+      {% for u in all_users %}
+        <li>{{ u.fullname }} {{ '🌸' if u.username in checkins else '🥺' }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</body>
+</html>
