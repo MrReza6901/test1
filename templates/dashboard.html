@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>پنل مدیریت</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <h2>مدیریت برنامه عهد جمعی - {{ today }}</h2>
+    <form method="POST">
+      {% for member in members %}
+        <div class="check-row">
+          <label>
+            <input type="checkbox" name="checked" value="{{ member }}" {% if member in checked %}checked{% endif %}>
+            {{ loop.index }}. {{ member }}
+          </label>
+        </div>
+      {% endfor %}
+      <button type="submit">ذخیره</button>
+    </form>
+
+    <form method="POST" action="/add-member" style="margin-top: 1rem;">
+      <input name="fullname" placeholder="نام عضو جدید">
+      <button type="submit">افزودن عضو</button>
+    </form>
+
+    <br>
+    <a href="/logout">خروج</a>
+  </div>
+</body>
+</html>
